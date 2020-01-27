@@ -13,11 +13,18 @@ import { User } from './user.model';
 import { Store } from '@ngrx/store';
 import { AppState } from '../app.reducer';
 import { ActivarLoadingAction, DesactivarLoadingAction } from '../shared/ui.accions';
+import { SetUserActions } from './auth.actions';
+import { Subscription } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
+
+
+  // probablemente siempre tendremos que inicializar esta subscription
+  // para que cuando el usuario se salga no nos de error unsubscribe por que no extiste
+  private userSubscription: Subscription = new Subscription();
 
   constructor( private store: Store<AppState>, private afAuth: AngularFireAuth, private router: Router, private afDb: AngularFirestore) { }
 
@@ -25,13 +32,17 @@ export class AuthService {
   initAuthListener() {
     // declaramos que fbUser es de tipo interface Firebase
     // que nos prermite ir directo los datos del usuario
-    this.afAuth.authState.subscribe((fbUser: firebase.User) => {
+    this.userSubscription = this.afAuth.authState.subscribe((fbUser: firebase.User) => {
 
       if (fbUser) {
         this.afDb.doc(`${fbUser.uid}/usuario`).valueChanges()
-        .subscribe( usuarioObj => {
-          console.log(usuarioObj);
+        .subscribe( (usuarioObj: any) => {
+          const newUser = new User (usuarioObj);
+          this.store.dispatch(new SetUserActions(newUser));
+          // console.log(newUser);
         });
+      } else {
+        this.userSubscription.unsubscribe();
       }
 
     });
